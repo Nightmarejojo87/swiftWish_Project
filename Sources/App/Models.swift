@@ -1,7 +1,9 @@
 import Foundation
 
-struct TaskItem: Codable, Sendable {
-    let id: Int64?
+struct WatchlistItem: Codable, Sendable {
+    var id: Int? // Optionnel car généré automatiquement par la base de données
     var title: String
-    var isCompleted: Bool
+    var genre: String
+    var status: String
+    var rating: Int
 }
