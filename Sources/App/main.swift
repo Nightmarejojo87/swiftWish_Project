@@ -1,12 +1,7 @@
 import Hummingbird
 import Foundation
 
-// Initialisation de la base de données
-let db = try Database()
-
-let router = Router()
-
-// Structure qui "attrape" les données du formulaire web
+// Structures pour décoder les formulaires HTML
 struct FormData: Decodable {
     let title: String
     let genre: String
@@ -14,62 +9,65 @@ struct FormData: Decodable {
     let rating: Int
 }
 
-// R - READ (Route GET)
+struct StatusFormData: Decodable {
+    let status: String
+}
+
+// Initialisation de la base de données (Actor)
+let db = try Database()
+let router = Router()
+
+// 1. GET - Afficher la page
 router.get("/") { request, context -> HTML in
     let items = try await db.getItems()
     return Views.renderIndex(items: items)
 }
 
-// C - CREATE (Route POST 1)
+// 2. POST - Créer un élément
 router.post("/create") { request, context -> Response in
-    // 1. On décode les données entrantes du formulaire
-    let formData = try await request.decode(as: FormData.self, context: context)
-    
-    // 2. On prépare notre objet modèle pour la base de données
-    let newItem = WatchlistItem(
-        title: formData.title,
-        genre: formData.genre,
-        status: formData.status,
-        rating: formData.rating
-    )
-    
-    // 3. On sauvegarde dans la base SQLite de manière asynchrone
+    // CORRECTION Hummingbird 2 ICI
+    let formData = try await URLEncodedFormDecoder().decode(FormData.self, from: request, context: context)
+    let newItem = WatchlistItem(title: formData.title, genre: formData.genre, status: formData.status, rating: formData.rating)
     try await db.createItem(item: newItem)
-    
-    // 4. On redirige l'utilisateur vers la page principale une fois terminé
     return Response(status: .seeOther, headers: [.location: "/"])
 }
 
-// U - UPDATE (Route POST 2)
-router.post("/update/:id") { request, context -> Response in
-    guard let idString = context.parameters.get("id"), let id = Int(idString) else {
-        return Response(status: .badRequest)
-    }
-    // Simulation d'une mise à jour complète
-    let updatedItem = WatchlistItem(id: id, title: "Film Modifié", genre: "Drame", status: "Terminé", rating: 4)
-    try await db.updateItem(itemId: id, updatedItem: updatedItem)
-    
-    return Response(status: .seeOther, headers: [.location: "/"])
-}
-
-// D - DELETE (Route POST 3)
+// 3. POST - Supprimer un élément
 router.post("/delete/:id") { request, context -> Response in
     guard let idString = context.parameters.get("id"), let id = Int(idString) else {
         return Response(status: .badRequest)
     }
     try await db.deleteItem(itemId: id)
-    
     return Response(status: .seeOther, headers: [.location: "/"])
 }
 
-// UPDATE RAPIDE - (Route POST 4 pour remplir le critère)
+// 4. POST - Modifier le statut rapidement
 router.post("/toggle-status/:id") { request, context -> Response in
     guard let idString = context.parameters.get("id"), let id = Int(idString) else {
         return Response(status: .badRequest)
     }
-    // Logique pour inverser le statut ici (non implémentée dans l'exemple db)
+    // CORRECTION Hummingbird 2 ICI
+    let formData = try await URLEncodedFormDecoder().decode(StatusFormData.self, from: request, context: context)
+    try await db.updateStatus(itemId: id, newStatus: formData.status)
     return Response(status: .seeOther, headers: [.location: "/"])
 }
 
-let app = Application(router: router)
+// 5. POST - Route complète de mise à jour
+router.post("/update/:id") { request, context -> Response in
+    guard let idString = context.parameters.get("id"), let id = Int(idString) else {
+        return Response(status: .badRequest)
+    }
+    // CORRECTION Hummingbird 2 ICI
+    let formData = try await URLEncodedFormDecoder().decode(FormData.self, from: request, context: context)
+    let updatedItem = WatchlistItem(id: id, title: formData.title, genre: formData.genre, status: formData.status, rating: formData.rating)
+    try await db.updateItem(itemId: id, updatedItem: updatedItem)
+    return Response(status: .seeOther, headers: [.location: "/"])
+}
+
+// Configuration pour Codespaces avec l'adresse 0.0.0.0
+let app = Application(
+    router: router,
+    configuration: .init(address: .hostname("0.0.0.0", port: 8080))
+)
+
 try await app.runService()

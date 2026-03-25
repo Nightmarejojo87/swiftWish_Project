@@ -1,7 +1,6 @@
 import Foundation
 import Hummingbird
 
-// On crée une structure pour envelopper le HTML afin que Hummingbird puisse le renvoyer
 struct HTML: ResponseGenerator {
     let html: String
     func response(from request: Request, context: some RequestContext) throws -> Response {
@@ -14,22 +13,27 @@ struct HTML: ResponseGenerator {
 }
 
 enum Views {
-    // Fonction qui génère la page principale avec la liste et le formulaire d'ajout
     static func renderIndex(items: [WatchlistItem]) -> HTML {
         var rows = ""
         
-        // Boucle pour générer dynamiquement les données 
         for item in items {
             let itemId = item.id ?? 0
+            // Logique pour le bouton de statut rapide
+            let nextStatus = item.status == "À voir" ? "En cours" : (item.status == "En cours" ? "Terminé" : "À voir")
+            
             rows += """
             <tr>
                 <td>\(item.title)</td>
                 <td>\(item.genre)</td>
                 <td>\(item.status)</td>
-                <td>\(item.rating)/5</td>
+                <td>\(item.rating)/10</td>
                 <td>
+                    <form action="/toggle-status/\(itemId)" method="POST" style="display:inline;">
+                        <input type="hidden" name="status" value="\(nextStatus)">
+                        <button type="submit" class="secondary outline" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Passer à '\(nextStatus)'</button>
+                    </form>
                     <form action="/delete/\(itemId)" method="POST" style="display:inline;">
-                        <button type="submit" class="secondary outline">Supprimer</button>
+                        <button type="submit" class="contrast outline" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Supprimer</button>
                     </form>
                 </td>
             </tr>
@@ -61,7 +65,7 @@ enum Views {
                             </tr>
                         </thead>
                         <tbody>
-                            \(rows)
+                            \(rows.isEmpty ? "<tr><td colspan='5'>Aucun film pour le moment.</td></tr>" : rows)
                         </tbody>
                     </table>
                 </section>
@@ -71,14 +75,18 @@ enum Views {
                 <section>
                     <h2>Ajouter un élément</h2>
                     <form action="/create" method="POST">
-                        <input type="text" name="title" placeholder="Titre du film" required>
-                        <input type="text" name="genre" placeholder="Genre" required>
-                        <select name="status">
-                            <option value="À voir">À voir</option>
-                            <option value="En cours">En cours</option>
-                            <option value="Terminé">Terminé</option>
-                        </select>
-                        <input type="number" name="rating" placeholder="Note sur 5" min="1" max="5" required>
+                        <div class="grid">
+                            <input type="text" name="title" placeholder="Titre du film" required>
+                            <input type="text" name="genre" placeholder="Genre" required>
+                        </div>
+                        <div class="grid">
+                            <select name="status" required>
+                                <option value="À voir" selected>À voir</option>
+                                <option value="En cours">En cours</option>
+                                <option value="Terminé">Terminé</option>
+                            </select>
+                            <input type="number" name="rating" placeholder="Note sur 10" min="0" max="" required>
+                        </div>
                         <button type="submit">Ajouter à la liste</button>
                     </form>
                 </section>
